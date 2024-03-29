@@ -30,8 +30,10 @@ func getEnvs() map[string]string {
 	m := make(map[string]string)
 
 	for _, env := range envs {
-		results := strings.SplitN(env, "=", 1)
-		m[results[0]] = results[1]
+		varName, varValue, found := strings.Cut(env, "=")
+		if found {
+			m[varName] = m[varValue]
+		}
 	}
 
 	return m
