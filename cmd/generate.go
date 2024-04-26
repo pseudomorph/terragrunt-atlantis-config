@@ -191,7 +191,7 @@ func getDependencies(path string, terragruntOptions *options.TerragruntOptions) 
 			}
 
 			// Check if the path begins with a drive letter, denoting Windows
-			isWindowsPath, err := regexp.MatchString(`^[A-Z]:`, parsedSource)
+			isWindowsPath, err := regexp.MatchString(`^[A-Za-z]:`, parsedSource)
 			if err != nil {
 				return nil, err
 			}
@@ -577,17 +577,21 @@ func getAllTerragruntFiles(path string) ([]string, error) {
 		return nil, err
 	}
 
-	// If filterPath is provided, override workingPath instead of gitRoot
+	// If filterPaths is provided, override workingPath instead of gitRoot
 	// We do this here because we want to keep the relative path structure of Terragrunt files
 	// to root and just ignore the ConfigFiles
 	workingPaths := []string{path}
 
 	// filters are not working (yet) if using project hcl files (which are kind of filters by themselves)
-	if filterPath != "" && len(projectHclFiles) == 0 {
-		// get all matching folders
-		workingPaths, err = filepath.Glob(filterPath)
-		if err != nil {
-			return nil, err
+	if len(filterPaths) > 0 && len(projectHclFiles) == 0 {
+		workingPaths = []string{}
+		for _, filterPath := range filterPaths {
+			// get all matching folders
+			theseWorkingPaths, err := filepath.Glob(filterPath)
+			if err != nil {
+				return nil, err
+			}
+			workingPaths = append(workingPaths, theseWorkingPaths...)
 		}
 	}
 
@@ -828,7 +832,7 @@ func main(cmd *cobra.Command, args []string) error {
 				dependsOnList := []string{}
 				// choose order group based on dependencies
 				for _, dep := range project.Autoplan.WhenModified {
-					depPath := filepath.Dir(filepath.Join(project.Dir, dep))
+					depPath := filepath.ToSlash(filepath.Dir(filepath.Join(project.Dir, dep)))
 					if depPath == project.Dir {
 						// skip dependency on oneself
 						continue
@@ -909,7 +913,7 @@ var createWorkspace bool
 var createProjectName bool
 var defaultTerraformVersion string
 var defaultWorkflow string
-var filterPath string
+var filterPaths []string
 var outputPath string
 var preserveWorkflows bool
 var preserveProjects bool
@@ -960,7 +964,7 @@ func init() {
 	generateCmd.PersistentFlags().StringVar(&defaultWorkflow, "workflow", "", "Name of the workflow to be customized in the atlantis server. Default is to not set")
 	generateCmd.PersistentFlags().StringSliceVar(&defaultApplyRequirements, "apply-requirements", []string{}, "Requirements that must be satisfied before `atlantis apply` can be run. Currently the only supported requirements are `approved` and `mergeable`. Can be overridden by locals")
 	generateCmd.PersistentFlags().StringVar(&outputPath, "output", "", "Path of the file where configuration will be generated. Default is not to write to file")
-	generateCmd.PersistentFlags().StringVar(&filterPath, "filter", "", "Path or glob expression to the directory you want scope down the config for. Default is all files in root")
+	generateCmd.PersistentFlags().StringSliceVar(&filterPaths, "filter", []string{}, "Comma-separated paths or glob expressions to the directories you want scope down the config for. Default is all files in root.")
 	generateCmd.PersistentFlags().StringVar(&gitRoot, "root", pwd, "Path to the root directory of the git repo you want to build config for. Default is current dir")
 	generateCmd.PersistentFlags().StringVar(&defaultTerraformVersion, "terraform-version", "", "Default terraform version to specify for all modules. Can be overriden by locals")
 	generateCmd.PersistentFlags().Int64Var(&numExecutors, "num-executors", 15, "Number of executors used for parallel generation of projects. Default is 15")
